@@ -7,10 +7,10 @@ nEmo Commerce es un sistema de gestión de comercio electrónico orientado a emp
 
 ## Tecnolgías
 
--Go (Golang)
--MySQL
--Git
--GitHub
+- Go (Golang)
+- MySQL
+- Git
+- GitHub
 
 ## Estado del Proyecto
 Planeacion del software
