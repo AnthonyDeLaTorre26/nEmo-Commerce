@@ -6,6 +6,7 @@ import (
 	"nemo-commerce/utils"
 )
 
+// mostrarMenu presenta las opciones disponibles parala interfaz del usuario.
 func mostrarMenu() {
 	fmt.Println("\n===== nEmo Commerce =====")
 	fmt.Println("1. Registrar cliente")
@@ -20,14 +21,18 @@ func mostrarMenu() {
 }
 
 func main() {
+
+	// Se crea una instancia de Tienda
 	tienda := models.NuevaTienda()
 
+	// Se crea el ciclo principal manteniendo el sistema activo hasta el cierre de sesión.
 	for {
 		mostrarMenu()
 		opcion := utils.LeerEntero("Seleccione una opción: ")
 
 		switch opcion {
 
+		// Registrar un nuevo cliente.
 		case 1:
 			id := utils.LeerEntero("ID del cliente: ")
 			nombre := utils.LeerTexto("Nombre: ")
@@ -47,6 +52,7 @@ func main() {
 
 			fmt.Println("Cliente registrado correctamente.")
 
+		// Agrega un nuevo producto al catálogo.
 		case 2:
 			codigo := utils.LeerTexto("Código: ")
 			nombre := utils.LeerTexto("Nombre del producto: ")
@@ -67,6 +73,7 @@ func main() {
 
 			fmt.Println("Producto agregado correctamente.")
 
+		// Muestra los productos disponibles.
 		case 3:
 			productos := tienda.GetProductos()
 
@@ -85,6 +92,7 @@ func main() {
 					p.GetStock())
 			}
 
+		// Realización de un nuevo pedido.
 		case 4:
 			idCliente := utils.LeerEntero("ID del cliente: ")
 			cliente := tienda.BuscarClientePorID(idCliente)
@@ -125,6 +133,7 @@ func main() {
 
 			fmt.Printf("Pedido registrado correctamente. Total: $%.2f\n", pedido.GetTotal())
 
+		//Muestra todos loss pedidos registrados.
 		case 5:
 			pedidos := tienda.GetPedidos()
 
@@ -147,6 +156,7 @@ func main() {
 				fmt.Printf("Total: $%.2f\n", p.GetTotal())
 			}
 
+		// Muestra todos los clientes registrados.
 		case 6:
 			clientes := tienda.GetClientes()
 
@@ -164,6 +174,7 @@ func main() {
 					c.GetCorreo())
 			}
 
+		// Elimina productos del catálogo.
 		case 7:
 			codigo := utils.LeerTexto("Código del producto a eliminar: ")
 			err := tienda.EliminarProducto(codigo)
@@ -173,6 +184,7 @@ func main() {
 				fmt.Println("Producto eliminado correctamente.")
 			}
 
+		// Elimina clientes registrados.
 		case 8:
 			id := utils.LeerEntero("ID del cliente a eliminar: ")
 			err := tienda.EliminarCliente(id)
@@ -182,10 +194,12 @@ func main() {
 				fmt.Println("Cliente eliminado correctamente.")
 			}
 
+		// Finaliza la sesión cerrando el programa.
 		case 9:
 			fmt.Println("Saliendo del sistema...")
 			return
 
+		// Evita opciones que no existan en el menú.
 		default:
 			fmt.Println("Opción inválida")
 		}

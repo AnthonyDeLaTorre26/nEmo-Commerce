@@ -21,7 +21,7 @@ func NuevaTienda() *Tienda {
 // La función AgregarProducto registra un producto evitando códigos duplicados.
 func (t *Tienda) AgregarProducto(p *Producto) error {
 	if t.BuscarProductoPorCodigo(p.GetCodigo()) != nil {
-		return errors.New("ya existe un producto con ese código")
+		return errors.New("Ya existe un producto con ese código")
 	}
 
 	t.productos = append(t.productos, p)
@@ -31,7 +31,7 @@ func (t *Tienda) AgregarProducto(p *Producto) error {
 // La función RegistrarCliente registra un cliente evitando IDs duplicados.
 func (t *Tienda) RegistrarCliente(c *Cliente) error {
 	if t.BuscarClientePorID(c.GetID()) != nil {
-		return errors.New("ya existe un cliente con ese ID")
+		return errors.New("Ya existe un cliente con ese ID")
 	}
 
 	t.clientes = append(t.clientes, c)
@@ -86,7 +86,7 @@ func (t *Tienda) EliminarProducto(codigo string) error {
 			return nil
 		}
 	}
-	return errors.New("producto no encontrado")
+	return errors.New("Producto no encontrado")
 }
 
 // La función EliminarCliente elimina un cliente por el ID.
@@ -97,5 +97,5 @@ func (t *Tienda) EliminarCliente(id int) error {
 			return nil
 		}
 	}
-	return errors.New("cliente no encontrado")
+	return errors.New("Cliente no encontrado")
 }
