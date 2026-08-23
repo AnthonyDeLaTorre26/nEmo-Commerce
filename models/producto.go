@@ -5,6 +5,7 @@ import "errors"
 // Producto representará un artículo del catálogo.
 // Cumple con princio de encapsulación al tener sus atributos privados.
 type Producto struct {
+	id     int
 	codigo string
 	nombre string
 	precio float64
@@ -35,6 +36,16 @@ func NuevoProducto(codigo, nombre string, precio float64, stock int) (*Producto,
 		precio: precio,
 		stock:  stock,
 	}, nil
+}
+
+// GetID devuelve la identificación del producto.
+func (p *Producto) GetID() int {
+	return p.id
+}
+
+// SetID asigna el identificador generado por la base de datos.
+func (p *Producto) SetID(id int) {
+	p.id = id
 }
 
 // GetCodigo devuelve el código del producto.

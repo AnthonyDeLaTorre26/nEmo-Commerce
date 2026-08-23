@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
+
+	"nemo-commerce/database"
 	"nemo-commerce/models"
 	"nemo-commerce/utils"
 )
@@ -22,6 +25,21 @@ func mostrarMenu() {
 
 func main() {
 
+	// Conexión con la base de datos MySQL.
+	db, err := database.Conectar()
+	if err != nil {
+		log.Fatal("Error al conectar con MySQL:", err)
+	}
+
+	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal("No se pudo establecer conexión con MySQL:", err)
+	}
+
+	fmt.Println("Conexión exitosa con MySQL.")
+
 	// Se crea una instancia de Tienda
 	tienda := models.NuevaTienda()
 
@@ -34,23 +52,16 @@ func main() {
 
 		// Registrar un nuevo cliente.
 		case 1:
-			id := utils.LeerEntero("ID del cliente: ")
 			nombre := utils.LeerTexto("Nombre: ")
 			correo := utils.LeerTexto("Correo: ")
 
-			cliente, err := models.NuevoCliente(id, nombre, correo)
+			id, err := database.InsertarCliente(db, nombre, correo)
 			if err != nil {
-				fmt.Println("Error:", err)
+				fmt.Println("Error al guardar el cliente en MySQL:", err)
 				break
 			}
 
-			err = tienda.RegistrarCliente(cliente)
-			if err != nil {
-				fmt.Println("Error:", err)
-				break
-			}
-
-			fmt.Println("Cliente registrado correctamente.")
+			fmt.Printf("Cliente registrado correctamente. ID asignado: %d\n", id)
 
 		// Agrega un nuevo producto al catálogo.
 		case 2:
@@ -59,41 +70,62 @@ func main() {
 			precio := utils.LeerDecimal("Precio: ")
 			stock := utils.LeerEntero("Stock: ")
 
-			producto, err := models.NuevoProducto(codigo, nombre, precio, stock)
+			id, err := database.InsertarProducto(db, codigo, nombre, precio, stock)
 			if err != nil {
-				fmt.Println("Error:", err)
+				fmt.Println("Error al guardar el producto en MySQL:", err)
 				break
 			}
 
-			err = tienda.AgregarProducto(producto)
-			if err != nil {
-				fmt.Println("Error:", err)
-				break
-			}
-
-			fmt.Println("Producto agregado correctamente.")
+			fmt.Printf("Producto agregado correctamente. ID asignado: %d\n", id)
 
 		// Muestra los productos disponibles.
 		case 3:
-			productos := tienda.GetProductos()
-
-			if len(productos) == 0 {
-				fmt.Println("No hay productos registrados.")
+			rows, err := database.ObtenerProductos(db)
+			if err != nil {
+				fmt.Println("Error al consultar los productos:", err)
 				break
 			}
 
+			defer rows.Close()
+
 			fmt.Println("\n===== Catálogo de Productos =====")
 
-			for _, p := range productos {
-				fmt.Printf("Código: %s | Nombre: %s | Precio: $%.2f | Stock: %d\n",
-					p.GetCodigo(),
-					p.GetNombre(),
-					p.GetPrecio(),
-					p.GetStock())
+			hayProductos := false
+
+			for rows.Next() {
+				var (
+					id     int
+					codigo string
+					nombre string
+					precio float64
+					stock  int
+				)
+
+				err := rows.Scan(&id, &codigo, &nombre, &precio, &stock)
+				if err != nil {
+					fmt.Println("Error al leer el producto:", err)
+					break
+				}
+
+				hayProductos = true
+
+				fmt.Printf(
+					"ID: %d | Código: %s | Nombre: %s | Precio: $%.2f | Stock: %d\n",
+					id,
+					codigo,
+					nombre,
+					precio,
+					stock,
+				)
+			}
+
+			if !hayProductos {
+				fmt.Println("No hay productos registrados.")
 			}
 
 		// Realización de un nuevo pedido.
 		case 4:
+			// Realización de un nuevo pedido.
 			idCliente := utils.LeerEntero("ID del cliente: ")
 			cliente := tienda.BuscarClientePorID(idCliente)
 
@@ -112,26 +144,53 @@ func main() {
 
 			cantidad := utils.LeerEntero("Cantidad: ")
 
+			if cantidad <= 0 {
+				fmt.Println("La cantidad debe ser mayor que cero.")
+				break
+			}
+
 			if producto.GetStock() < cantidad {
 				fmt.Println("Stock insuficiente.")
 				break
 			}
 
-			err := producto.ReducirStock(cantidad)
+			total := producto.GetPrecio() * float64(cantidad)
+
+			pedidoID, err := database.InsertarPedido(
+				db,
+				cliente.GetID(),
+				total,
+			)
+
 			if err != nil {
-				fmt.Println("Error:", err)
+				fmt.Println("Error al guardar el pedido:", err)
 				break
 			}
 
-			pedido := models.NuevoPedido(len(tienda.GetPedidos())+1, cliente)
+			err = database.InsertarDetallePedido(
+				db,
+				pedidoID,
+				producto.GetID(),
+				cantidad,
+				producto.GetPrecio(),
+			)
 
-			for i := 0; i < cantidad; i++ {
-				pedido.AgregarProducto(producto)
+			if err != nil {
+				fmt.Println("Error al guardar el detalle del pedido:", err)
+				break
 			}
 
-			tienda.AgregarPedido(pedido)
+			err = producto.ReducirStock(cantidad)
+			if err != nil {
+				fmt.Println("Error al actualizar el stock:", err)
+				break
+			}
 
-			fmt.Printf("Pedido registrado correctamente. Total: $%.2f\n", pedido.GetTotal())
+			fmt.Printf(
+				"Pedido registrado correctamente. ID: %d | Total: $%.2f\n",
+				pedidoID,
+				total,
+			)
 
 		//Muestra todos loss pedidos registrados.
 		case 5:
@@ -158,20 +217,47 @@ func main() {
 
 		// Muestra todos los clientes registrados.
 		case 6:
-			clientes := tienda.GetClientes()
-
-			if len(clientes) == 0 {
-				fmt.Println("No hay clientes registrados.")
+			rows, err := database.ObtenerClientes(db)
+			if err != nil {
+				fmt.Println("Error al consultar los clientes:", err)
 				break
 			}
 
+			defer rows.Close()
+
 			fmt.Println("\n===== Clientes Registrados =====")
 
-			for _, c := range clientes {
-				fmt.Printf("ID: %d | Nombre: %s | Correo: %s\n",
-					c.GetID(),
-					c.GetNombre(),
-					c.GetCorreo())
+			hayClientes := false
+
+			for rows.Next() {
+				var (
+					id     int
+					nombre string
+					correo string
+				)
+
+				err := rows.Scan(&id, &nombre, &correo)
+				if err != nil {
+					fmt.Println("Error al leer el cliente:", err)
+					break
+				}
+
+				hayClientes = true
+
+				fmt.Printf(
+					"ID: %d | Nombre: %s | Correo: %s\n",
+					id,
+					nombre,
+					correo,
+				)
+			}
+
+			if !hayClientes {
+				fmt.Println("No hay clientes registrados.")
+			}
+
+			if !hayClientes {
+				fmt.Println("No hay clientes registrados.")
 			}
 
 		// Elimina productos del catálogo.
