@@ -2,16 +2,36 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 func Conectar() (*sql.DB, error) {
-	db, err := sql.Open(
-		"mysql",
-		"nemo_app:123456789@@tcp(127.0.0.1:3306)/nemo_commerce",
+
+	err := godotenv.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	usuario := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	host := os.Getenv("DB_HOST")
+	puerto := os.Getenv("DB_PORT")
+	baseDatos := os.Getenv("DB_NAME")
+
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s",
+		usuario,
+		password,
+		host,
+		puerto,
+		baseDatos,
 	)
 
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err
 	}
