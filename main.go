@@ -70,9 +70,27 @@ func main() {
 			precio := utils.LeerDecimal("Precio: ")
 			stock := utils.LeerEntero("Stock: ")
 
+			// Crear el objeto Producto utilizando el modelo.
+			producto, err := models.NuevoProducto(codigo, nombre, precio, stock)
+			if err != nil {
+				fmt.Println("Error:", err)
+				break
+			}
+
+			// Guardar el producto en MySQL.
 			id, err := database.InsertarProducto(db, codigo, nombre, precio, stock)
 			if err != nil {
 				fmt.Println("Error al guardar el producto en MySQL:", err)
+				break
+			}
+
+			// Asignar al objeto el ID generado por MySQL.
+			producto.SetID(int(id))
+
+			// Agregar el producto a la tienda.
+			err = tienda.AgregarProducto(producto)
+			if err != nil {
+				fmt.Println("Error:", err)
 				break
 			}
 
