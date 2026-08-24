@@ -43,6 +43,42 @@ func main() {
 	// Se crea una instancia de Tienda
 	tienda := models.NuevaTienda()
 
+	// Cargar los clientes existentes desde MySQL.
+	rows, err := database.ObtenerClientes(db)
+	if err != nil {
+		log.Fatal("Error al cargar los clientes:", err)
+	}
+
+	for rows.Next() {
+		var (
+			id     int
+			nombre string
+			correo string
+		)
+
+		err := rows.Scan(&id, &nombre, &correo)
+		if err != nil {
+			log.Fatal("Error al leer un cliente:", err)
+		}
+
+		cliente, err := models.NuevoCliente(id, nombre, correo)
+		if err != nil {
+			log.Fatal("Error al crear el cliente:", err)
+		}
+
+		err = tienda.RegistrarCliente(cliente)
+		if err != nil {
+			log.Fatal("Error al registrar el cliente en la tienda:", err)
+		}
+	}
+
+	rows.Close()
+
+	// Iniciar el servidor web en segundo plano.
+	go iniciarServidorWeb(db)
+
+	fmt.Println("Servidor web iniciado en http://localhost:8080")
+
 	// Se crea el ciclo principal manteniendo el sistema activo hasta el cierre de sesión.
 	for {
 		mostrarMenu()
@@ -55,9 +91,24 @@ func main() {
 			nombre := utils.LeerTexto("Nombre: ")
 			correo := utils.LeerTexto("Correo: ")
 
+			// Guardar el cliente en MySQL.
 			id, err := database.InsertarCliente(db, nombre, correo)
 			if err != nil {
 				fmt.Println("Error al guardar el cliente en MySQL:", err)
+				break
+			}
+
+			// Crear el objeto Cliente con el ID generado por MySQL.
+			cliente, err := models.NuevoCliente(int(id), nombre, correo)
+			if err != nil {
+				fmt.Println("Error:", err)
+				break
+			}
+
+			// Agregar el cliente a la tienda en memoria.
+			err = tienda.RegistrarCliente(cliente)
+			if err != nil {
+				fmt.Println("Error:", err)
 				break
 			}
 
@@ -198,11 +249,30 @@ func main() {
 				break
 			}
 
+			// Actualizar el stock directamente en MySQL.
+			err = database.ActualizarStock(db, producto.GetID(), cantidad)
+			if err != nil {
+				fmt.Println("Error al actualizar el stock en MySQL:", err)
+				break
+			}
+
+			// Actualizar también el stock del objeto en memoria.
 			err = producto.ReducirStock(cantidad)
 			if err != nil {
 				fmt.Println("Error al actualizar el stock:", err)
 				break
 			}
+
+			// Crear el objeto Pedido.
+			pedido := models.NuevoPedido(int(pedidoID), cliente)
+
+			// Agregar al pedido la cantidad de productos comprados.
+			for i := 0; i < cantidad; i++ {
+				pedido.AgregarProducto(producto)
+			}
+
+			// Guardar el pedido también en la tienda.
+			tienda.AgregarPedido(pedido)
 
 			fmt.Printf(
 				"Pedido registrado correctamente. ID: %d | Total: $%.2f\n",

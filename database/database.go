@@ -130,3 +130,19 @@ func InsertarDetallePedido(
 
 	return err
 }
+
+func ActualizarStock(db *sql.DB, productoID int, cantidad int) error {
+	_, err := db.Exec(
+		"UPDATE productos SET stock = stock - ? WHERE id = ?",
+		cantidad,
+		productoID,
+	)
+
+	return err
+}
+
+type ClienteDB struct {
+	ID     int
+	Nombre string
+	Correo string
+}
