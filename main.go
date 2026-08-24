@@ -344,10 +344,6 @@ func main() {
 				fmt.Println("No hay clientes registrados.")
 			}
 
-			if !hayClientes {
-				fmt.Println("No hay clientes registrados.")
-			}
-
 		// Elimina productos del catálogo.
 		case 7:
 			codigo := utils.LeerTexto("Código del producto a eliminar: ")

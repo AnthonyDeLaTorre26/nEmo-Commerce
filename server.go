@@ -39,9 +39,7 @@ type PedidoPagina struct {
 
 func iniciarServidorWeb(db *sql.DB) {
 
-	// =========================
 	// INICIO
-	// =========================
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, err := template.ParseFiles("web/templates/index.html")
@@ -57,9 +55,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		}
 	})
 
-	// =========================
 	// PRODUCTOS
-	// =========================
 	http.HandleFunc("/productos", func(w http.ResponseWriter, r *http.Request) {
 
 		rows, err := database.ObtenerProductos(db)
@@ -103,9 +99,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		}
 	})
 
-	// =========================
 	// AGREGAR PRODUCTO
-	// =========================
 	http.HandleFunc("/productos/agregar", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != http.MethodPost {
@@ -149,9 +143,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		http.Redirect(w, r, "/productos", http.StatusSeeOther)
 	})
 
-	// =========================
 	// CLIENTES
-	// =========================
 	http.HandleFunc("/clientes", func(w http.ResponseWriter, r *http.Request) {
 
 		rows, err := database.ObtenerClientes(db)
@@ -193,9 +185,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		}
 	})
 
-	// =========================
 	// AGREGAR CLIENTE
-	// =========================
 	http.HandleFunc("/clientes/agregar", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != http.MethodPost {
@@ -220,9 +210,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		http.Redirect(w, r, "/clientes", http.StatusSeeOther)
 	})
 
-	// =========================
 	// MOSTRAR PEDIDOS
-	// =========================
 	http.HandleFunc("/pedidos", func(w http.ResponseWriter, r *http.Request) {
 
 		var data PedidoPagina
@@ -343,9 +331,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		}
 	})
 
-	// =========================
 	// AGREGAR PEDIDO
-	// =========================
 	http.HandleFunc("/pedidos/agregar", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != http.MethodPost {
