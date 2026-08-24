@@ -2,10 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"nemo-commerce/database"
 	"net/http"
+	"strconv"
+	"sync"
 )
 
 type ProductoWeb struct {
@@ -40,6 +43,7 @@ type PedidoPagina struct {
 func iniciarServidorWeb(db *sql.DB) {
 
 	// INICIO
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, err := template.ParseFiles("web/templates/index.html")
@@ -56,6 +60,7 @@ func iniciarServidorWeb(db *sql.DB) {
 	})
 
 	// PRODUCTOS
+
 	http.HandleFunc("/productos", func(w http.ResponseWriter, r *http.Request) {
 
 		rows, err := database.ObtenerProductos(db)
@@ -68,6 +73,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		var productos []ProductoWeb
 
 		for rows.Next() {
+
 			var producto ProductoWeb
 
 			err := rows.Scan(
@@ -100,6 +106,7 @@ func iniciarServidorWeb(db *sql.DB) {
 	})
 
 	// AGREGAR PRODUCTO
+
 	http.HandleFunc("/productos/agregar", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != http.MethodPost {
@@ -136,7 +143,11 @@ func iniciarServidorWeb(db *sql.DB) {
 		)
 
 		if err != nil {
-			http.Error(w, "Error al guardar el producto: "+err.Error(), http.StatusInternalServerError)
+			http.Error(
+				w,
+				"Error al guardar el producto: "+err.Error(),
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
@@ -144,6 +155,7 @@ func iniciarServidorWeb(db *sql.DB) {
 	})
 
 	// CLIENTES
+
 	http.HandleFunc("/clientes", func(w http.ResponseWriter, r *http.Request) {
 
 		rows, err := database.ObtenerClientes(db)
@@ -156,6 +168,7 @@ func iniciarServidorWeb(db *sql.DB) {
 		var clientes []ClienteWeb
 
 		for rows.Next() {
+
 			var cliente ClienteWeb
 
 			err := rows.Scan(
@@ -186,6 +199,7 @@ func iniciarServidorWeb(db *sql.DB) {
 	})
 
 	// AGREGAR CLIENTE
+
 	http.HandleFunc("/clientes/agregar", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != http.MethodPost {
@@ -203,14 +217,19 @@ func iniciarServidorWeb(db *sql.DB) {
 		)
 
 		if err != nil {
-			http.Error(w, "Error al guardar el cliente: "+err.Error(), http.StatusInternalServerError)
+			http.Error(
+				w,
+				"Error al guardar el cliente: "+err.Error(),
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
 		http.Redirect(w, r, "/clientes", http.StatusSeeOther)
 	})
 
-	// MOSTRAR PEDIDOS
+	// MOSTRAR PEDIDO
+
 	http.HandleFunc("/pedidos", func(w http.ResponseWriter, r *http.Request) {
 
 		var data PedidoPagina
@@ -273,7 +292,7 @@ func iniciarServidorWeb(db *sql.DB) {
 
 		rowsProductos.Close()
 
-		// Obtener pedidos y detalles
+		// Obtener pedidos
 		rowsPedidos, err := db.Query(`
 			SELECT
 				p.id,
@@ -317,7 +336,6 @@ func iniciarServidorWeb(db *sql.DB) {
 			data.Pedidos = append(data.Pedidos, pedido)
 		}
 
-		// Cargar plantilla
 		tmpl, err := template.ParseFiles("web/templates/pedidos.html")
 		if err != nil {
 			http.Error(w, "Error al cargar la página", http.StatusInternalServerError)
@@ -332,6 +350,7 @@ func iniciarServidorWeb(db *sql.DB) {
 	})
 
 	// AGREGAR PEDIDO
+
 	http.HandleFunc("/pedidos/agregar", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != http.MethodPost {
@@ -376,7 +395,6 @@ func iniciarServidorWeb(db *sql.DB) {
 			return
 		}
 
-		// Obtener precio y stock actual
 		var precio float64
 		var stock int
 
@@ -397,7 +415,6 @@ func iniciarServidorWeb(db *sql.DB) {
 
 		total := precio * float64(cantidad)
 
-		// Insertar pedido
 		pedidoID, err := database.InsertarPedido(
 			db,
 			clienteID,
@@ -413,7 +430,6 @@ func iniciarServidorWeb(db *sql.DB) {
 			return
 		}
 
-		// Insertar detalle
 		err = database.InsertarDetallePedido(
 			db,
 			pedidoID,
@@ -431,7 +447,6 @@ func iniciarServidorWeb(db *sql.DB) {
 			return
 		}
 
-		// Actualizar stock
 		err = database.ActualizarStock(
 			db,
 			productoID,
@@ -447,7 +462,6 @@ func iniciarServidorWeb(db *sql.DB) {
 			return
 		}
 
-		// Volver a la página de pedidos
 		http.Redirect(
 			w,
 			r,
@@ -455,6 +469,487 @@ func iniciarServidorWeb(db *sql.DB) {
 			http.StatusSeeOther,
 		)
 	})
+
+	// SERVICIOS WEB - JSON
+
+	var pedidoMutex sync.Mutex
+
+	// 1. OBTENER PRODUCTOS
+	http.HandleFunc("/api/productos", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rows, err := database.ObtenerProductos(db)
+		if err != nil {
+			http.Error(w, "Error al consultar los productos", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var productos []ProductoWeb
+
+		for rows.Next() {
+
+			var producto ProductoWeb
+
+			err := rows.Scan(
+				&producto.ID,
+				&producto.Codigo,
+				&producto.Nombre,
+				&producto.Precio,
+				&producto.Stock,
+			)
+
+			if err != nil {
+				http.Error(w, "Error al leer los productos", http.StatusInternalServerError)
+				return
+			}
+
+			productos = append(productos, producto)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(productos)
+	})
+
+	// 2. AGREGAR PRODUCTO
+	http.HandleFunc("/api/productos/agregar", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var producto ProductoWeb
+
+		err := json.NewDecoder(r.Body).Decode(&producto)
+		if err != nil {
+			http.Error(w, "Datos inválidos", http.StatusBadRequest)
+			return
+		}
+
+		_, err = database.InsertarProducto(
+			db,
+			producto.Codigo,
+			producto.Nombre,
+			producto.Precio,
+			producto.Stock,
+		)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Error al guardar el producto",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		respuesta := map[string]interface{}{
+			"mensaje":  "Producto registrado correctamente",
+			"producto": producto,
+		}
+
+		json.NewEncoder(w).Encode(respuesta)
+	})
+
+	// 3. OBTENER CLIENTES
+	http.HandleFunc("/api/clientes", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rows, err := database.ObtenerClientes(db)
+		if err != nil {
+			http.Error(w, "Error al consultar los clientes", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var clientes []ClienteWeb
+
+		for rows.Next() {
+
+			var cliente ClienteWeb
+
+			err := rows.Scan(
+				&cliente.ID,
+				&cliente.Nombre,
+				&cliente.Correo,
+			)
+
+			if err != nil {
+				http.Error(w, "Error al leer los clientes", http.StatusInternalServerError)
+				return
+			}
+
+			clientes = append(clientes, cliente)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(clientes)
+	})
+
+	// 4. AGREGAR CLIENTE
+	http.HandleFunc("/api/clientes/agregar", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var cliente ClienteWeb
+
+		err := json.NewDecoder(r.Body).Decode(&cliente)
+		if err != nil {
+			http.Error(w, "Datos inválidos", http.StatusBadRequest)
+			return
+		}
+
+		_, err = database.InsertarCliente(
+			db,
+			cliente.Nombre,
+			cliente.Correo,
+		)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Error al guardar el cliente",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		respuesta := map[string]interface{}{
+			"mensaje": "Cliente registrado correctamente",
+			"cliente": cliente,
+		}
+
+		json.NewEncoder(w).Encode(respuesta)
+	})
+
+	// 5. OBTENER PEDIDOS
+	http.HandleFunc("/api/pedidos", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rows, err := db.Query(`
+			SELECT
+				p.id,
+				c.nombre,
+				pr.nombre,
+				dp.cantidad,
+				dp.precio_unitario,
+				(dp.cantidad * dp.precio_unitario) AS total
+			FROM pedidos p
+			INNER JOIN clientes c ON p.cliente_id = c.id
+			INNER JOIN detalle_pedidos dp ON p.id = dp.pedido_id
+			INNER JOIN productos pr ON dp.producto_id = pr.id
+			ORDER BY p.id DESC
+		`)
+
+		if err != nil {
+			http.Error(w, "Error al consultar los pedidos", http.StatusInternalServerError)
+			return
+		}
+
+		defer rows.Close()
+
+		var pedidos []PedidoWeb
+
+		for rows.Next() {
+
+			var pedido PedidoWeb
+
+			err := rows.Scan(
+				&pedido.ID,
+				&pedido.Cliente,
+				&pedido.Producto,
+				&pedido.Cantidad,
+				&pedido.Precio,
+				&pedido.Total,
+			)
+
+			if err != nil {
+				http.Error(w, "Error al leer los pedidos", http.StatusInternalServerError)
+				return
+			}
+
+			pedidos = append(pedidos, pedido)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(pedidos)
+	})
+
+	// 6. CREAR PEDIDO
+	http.HandleFunc("/api/pedidos/agregar", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var pedido struct {
+			ClienteID  int `json:"cliente_id"`
+			ProductoID int `json:"producto_id"`
+			Cantidad   int `json:"cantidad"`
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&pedido)
+		if err != nil {
+			http.Error(w, "Datos inválidos", http.StatusBadRequest)
+			return
+		}
+
+		if pedido.ClienteID <= 0 ||
+			pedido.ProductoID <= 0 ||
+			pedido.Cantidad <= 0 {
+
+			http.Error(
+				w,
+				"Datos del pedido inválidos",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		// Control de concurrencia
+		pedidoMutex.Lock()
+		defer pedidoMutex.Unlock()
+
+		var precio float64
+		var stock int
+
+		err = db.QueryRow(
+			"SELECT precio, stock FROM productos WHERE id = ?",
+			pedido.ProductoID,
+		).Scan(&precio, &stock)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Producto no encontrado",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		if stock < pedido.Cantidad {
+			http.Error(
+				w,
+				"Stock insuficiente",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		total := precio * float64(pedido.Cantidad)
+
+		pedidoID, err := database.InsertarPedido(
+			db,
+			pedido.ClienteID,
+			total,
+		)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Error al guardar el pedido",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		err = database.InsertarDetallePedido(
+			db,
+			pedidoID,
+			pedido.ProductoID,
+			pedido.Cantidad,
+			precio,
+		)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Error al guardar el detalle",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		err = database.ActualizarStock(
+			db,
+			pedido.ProductoID,
+			pedido.Cantidad,
+		)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Error al actualizar el stock",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		respuesta := map[string]interface{}{
+			"mensaje":     "Pedido registrado correctamente",
+			"pedido_id":   pedidoID,
+			"cliente_id":  pedido.ClienteID,
+			"producto_id": pedido.ProductoID,
+			"cantidad":    pedido.Cantidad,
+			"precio":      precio,
+			"total":       total,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(respuesta)
+	})
+
+	// 7. ELIMINAR PRODUCTO
+	http.HandleFunc("/api/productos/eliminar/", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodDelete {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		idTexto := r.URL.Path[len("/api/productos/eliminar/"):]
+
+		id, err := strconv.Atoi(idTexto)
+		if err != nil {
+			http.Error(
+				w,
+				"ID de producto inválido",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		resultado, err := db.Exec(
+			"DELETE FROM productos WHERE id = ?",
+			id,
+		)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Error al eliminar el producto",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		filas, err := resultado.RowsAffected()
+		if err != nil {
+			http.Error(
+				w,
+				"Error al comprobar la eliminación",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		if filas == 0 {
+			http.Error(
+				w,
+				"Producto no encontrado",
+				http.StatusNotFound,
+			)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		respuesta := map[string]interface{}{
+			"mensaje":     "Producto eliminado correctamente",
+			"producto_id": id,
+		}
+
+		json.NewEncoder(w).Encode(respuesta)
+	})
+
+	// 8. ELIMINAR CLIENTE
+	http.HandleFunc("/api/clientes/eliminar/", func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method != http.MethodDelete {
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		idTexto := r.URL.Path[len("/api/clientes/eliminar/"):]
+
+		id, err := strconv.Atoi(idTexto)
+		if err != nil {
+			http.Error(
+				w,
+				"ID de cliente inválido",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		resultado, err := db.Exec(
+			"DELETE FROM clientes WHERE id = ?",
+			id,
+		)
+
+		if err != nil {
+			http.Error(
+				w,
+				"Error al eliminar el cliente",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		filas, err := resultado.RowsAffected()
+		if err != nil {
+			http.Error(
+				w,
+				"Error al comprobar la eliminación",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		if filas == 0 {
+			http.Error(
+				w,
+				"Cliente no encontrado",
+				http.StatusNotFound,
+			)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		respuesta := map[string]interface{}{
+			"mensaje":    "Cliente eliminado correctamente",
+			"cliente_id": id,
+		}
+
+		json.NewEncoder(w).Encode(respuesta)
+	})
+
+	// INICIAR SERVIDOR
 
 	err := http.ListenAndServe(":8080", nil)
 

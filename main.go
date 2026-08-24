@@ -282,25 +282,73 @@ func main() {
 
 		//Muestra todos loss pedidos registrados.
 		case 5:
-			pedidos := tienda.GetPedidos()
 
-			if len(pedidos) == 0 {
-				fmt.Println("No existen pedidos registrados.")
+			rows, err := db.Query(`
+		SELECT
+			p.id,
+			c.nombre,
+			pr.nombre,
+			dp.cantidad,
+			dp.precio_unitario,
+			(dp.cantidad * dp.precio_unitario) AS total
+		FROM pedidos p
+		INNER JOIN clientes c ON p.cliente_id = c.id
+		INNER JOIN detalle_pedidos dp ON p.id = dp.pedido_id
+		INNER JOIN productos pr ON dp.producto_id = pr.id
+		ORDER BY p.id DESC
+	`)
+
+			if err != nil {
+				fmt.Println("Error al consultar los pedidos:", err)
 				break
 			}
 
 			fmt.Println("\n===== Pedidos Registrados =====")
 
-			for _, p := range pedidos {
-				fmt.Printf("\nPedido #%d\n", p.GetID())
-				fmt.Printf("Cliente: %s\n", p.GetCliente().GetNombre())
-				fmt.Println("Productos:")
+			hayPedidos := false
 
-				for _, prod := range p.GetProductos() {
-					fmt.Printf(" - %s ($%.2f)\n", prod.GetNombre(), prod.GetPrecio())
+			for rows.Next() {
+
+				var (
+					id       int
+					cliente  string
+					producto string
+					cantidad int
+					precio   float64
+					total    float64
+				)
+
+				err := rows.Scan(
+					&id,
+					&cliente,
+					&producto,
+					&cantidad,
+					&precio,
+					&total,
+				)
+
+				if err != nil {
+					fmt.Println("Error al leer el pedido:", err)
+					break
 				}
 
-				fmt.Printf("Total: $%.2f\n", p.GetTotal())
+				hayPedidos = true
+
+				fmt.Printf(
+					"Pedido #%d | Cliente: %s | Producto: %s | Cantidad: %d | Precio: $%.2f | Total: $%.2f\n",
+					id,
+					cliente,
+					producto,
+					cantidad,
+					precio,
+					total,
+				)
+			}
+
+			rows.Close()
+
+			if !hayPedidos {
+				fmt.Println("No existen pedidos registrados.")
 			}
 
 		// Muestra todos los clientes registrados.
