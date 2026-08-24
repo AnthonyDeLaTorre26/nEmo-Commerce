@@ -470,8 +470,6 @@ func iniciarServidorWeb(db *sql.DB) {
 		)
 	})
 
-	fmt.Println("Servidor web iniciado en http://localhost:8080")
-
 	err := http.ListenAndServe(":8080", nil)
 
 	if err != nil {
