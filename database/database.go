@@ -141,6 +141,22 @@ func ActualizarStock(db *sql.DB, productoID int, cantidad int) error {
 	return err
 }
 
+func EliminarProducto(db *sql.DB, codigo string) error {
+	_, err := db.Exec(
+		"DELETE FROM productos WHERE codigo = ?",
+		codigo,
+	)
+	return err
+}
+
+func EliminarCliente(db *sql.DB, id int) error {
+	_, err := db.Exec(
+		"DELETE FROM clientes WHERE id = ?",
+		id,
+	)
+	return err
+}
+
 type ClienteDB struct {
 	ID     int
 	Nombre string

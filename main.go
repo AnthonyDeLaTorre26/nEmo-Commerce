@@ -395,22 +395,42 @@ func main() {
 		// Elimina productos del catálogo.
 		case 7:
 			codigo := utils.LeerTexto("Código del producto a eliminar: ")
-			err := tienda.EliminarProducto(codigo)
+
+			err := database.EliminarProducto(db, codigo)
+
 			if err != nil {
-				fmt.Println("Error:", err)
-			} else {
-				fmt.Println("Producto eliminado correctamente.")
+				fmt.Println("Error al eliminar el producto de MySQL:", err)
+				break
 			}
+
+			err = tienda.EliminarProducto(codigo)
+
+			if err != nil {
+				fmt.Println("Error al eliminar el producto de la tienda:", err)
+				break
+			}
+
+			fmt.Println("Producto eliminado correctamente.")
 
 		// Elimina clientes registrados.
 		case 8:
 			id := utils.LeerEntero("ID del cliente a eliminar: ")
-			err := tienda.EliminarCliente(id)
+
+			err := database.EliminarCliente(db, id)
+
 			if err != nil {
-				fmt.Println("Error:", err)
-			} else {
-				fmt.Println("Cliente eliminado correctamente.")
+				fmt.Println("Error al eliminar el cliente de MySQL:", err)
+				break
 			}
+
+			err = tienda.EliminarCliente(id)
+
+			if err != nil {
+				fmt.Println("Error al eliminar el cliente de la tienda:", err)
+				break
+			}
+
+			fmt.Println("Cliente eliminado correctamente.")
 
 		// Finaliza la sesión cerrando el programa.
 		case 9:
