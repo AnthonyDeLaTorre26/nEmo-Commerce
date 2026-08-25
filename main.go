@@ -9,7 +9,7 @@ import (
 	"nemo-commerce/utils"
 )
 
-// mostrarMenu presenta las opciones disponibles parala interfaz del usuario.
+// mostrarMenu presenta las opciones disponibles para la interfaz del usuario.
 func mostrarMenu() {
 	fmt.Println("\n===== nEmo Commerce =====")
 	fmt.Println("1. Registrar cliente")
@@ -40,7 +40,7 @@ func main() {
 
 	fmt.Println("Conexión exitosa con MySQL.")
 
-	// Se crea una instancia de Tienda
+	// Se crea una instancia de Tienda.
 	tienda := models.NuevaTienda()
 
 	// Cargar los clientes existentes desde MySQL.
@@ -73,6 +73,41 @@ func main() {
 	}
 
 	rows.Close()
+
+	// Cargar los productos existentes desde MySQL.
+	rowsProductos, err := database.ObtenerProductos(db)
+	if err != nil {
+		log.Fatal("Error al cargar los productos:", err)
+	}
+
+	for rowsProductos.Next() {
+		var (
+			id     int
+			codigo string
+			nombre string
+			precio float64
+			stock  int
+		)
+
+		err := rowsProductos.Scan(&id, &codigo, &nombre, &precio, &stock)
+		if err != nil {
+			log.Fatal("Error al leer un producto:", err)
+		}
+
+		producto, err := models.NuevoProducto(codigo, nombre, precio, stock)
+		if err != nil {
+			log.Fatal("Error al crear el producto:", err)
+		}
+
+		producto.SetID(id)
+
+		err = tienda.AgregarProducto(producto)
+		if err != nil {
+			log.Fatal("Error al agregar el producto a la tienda:", err)
+		}
+	}
+
+	rowsProductos.Close()
 
 	// Iniciar el servidor web en segundo plano.
 	go iniciarServidorWeb(db)
@@ -155,8 +190,6 @@ func main() {
 				break
 			}
 
-			defer rows.Close()
-
 			fmt.Println("\n===== Catálogo de Productos =====")
 
 			hayProductos := false
@@ -188,13 +221,14 @@ func main() {
 				)
 			}
 
+			rows.Close()
+
 			if !hayProductos {
 				fmt.Println("No hay productos registrados.")
 			}
 
 		// Realización de un nuevo pedido.
 		case 4:
-			// Realización de un nuevo pedido.
 			idCliente := utils.LeerEntero("ID del cliente: ")
 			cliente := tienda.BuscarClientePorID(idCliente)
 
@@ -280,7 +314,7 @@ func main() {
 				total,
 			)
 
-		//Muestra todos loss pedidos registrados.
+		// Muestra todos los pedidos registrados.
 		case 5:
 
 			rows, err := db.Query(`
@@ -359,8 +393,6 @@ func main() {
 				break
 			}
 
-			defer rows.Close()
-
 			fmt.Println("\n===== Clientes Registrados =====")
 
 			hayClientes := false
@@ -387,6 +419,8 @@ func main() {
 					correo,
 				)
 			}
+
+			rows.Close()
 
 			if !hayClientes {
 				fmt.Println("No hay clientes registrados.")
